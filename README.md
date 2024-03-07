@@ -6,6 +6,8 @@ This repository contains a collection of tools and utilities developed specifica
 While these tools were created with my specific needs in mind, they are made available for anyone who might find them useful in their own projects or workflows. Please feel free to explore, use, and adapt these tools as you see fit.
 * `nltk-download.py` downloads the necessary NLTK required files for the scripts to work properly.
 * `memeRenamer.py` takes a directory and renames images and other files in that directory based on image contents.
+* `manage-backgrounds.sh` is a bash shell script to upload and backup my wallpapers.
+* `clean-backgrounds.py` is a script that deletes images in a directory which are either not the right aspect ratio or not high enough resolution.
 
 ## Attribution
 If you use these tools in your projects, attribution is appreciated but not required. The main intent is to share solutions that may be of benefit to others in similar scenarios.
