@@ -1,3 +1,35 @@
+#!/usr/bin/env python3
+
+"""
+This script provides functionalities for processing image files to extract text using Optical Character Recognition
+(OCR), correcting the spelling of the extracted text, filtering out words based on similarity and frequency, and
+managing file names based on the content of the images. It includes capabilities to rename files either to a hash value
+or based on the most  significant words extracted from the images.
+
+Usage:
+The script is designed to be run from the command line with arguments specifying the target directory containing the
+files to be processed, and optional flags to enable verbose or test modes.
+
+Example Command:
+`python script_name.py -d /path/to/directory -v -t`
+
+Dependencies:
+- NLTK: Used for natural language processing tasks, such as tokenization and frequency analysis.
+- pytesseract: Utilized for extracting text from image files using OCR.
+- spellchecker: Employed for spelling correction of the extracted text.
+- Python-Levenshtein (or similar): Used for calculating similarity between words to filter out highly similar words.
+- argparse, os, hashlib, string, time, textwrap, shutil: Standard Python libraries used for argument parsing, file and
+  directory operations, hash generation, string manipulation, timing, and text formatting.
+
+Note:
+Ensure all external dependencies are installed, and necessary NLTK data (e.g., corpora, tokenizers) is downloaded
+before running the script.  A script is included 'nltk-download.pu' which will download the necessary NLTK files once
+the library is installed.
+
+More information and current source code available at:
+https://github.com/dwhagar/imageTools
+"""
+
 import os, hashlib, argparse, string, time, textwrap, shutil
 import nltk, pytesseract
 from PIL import Image
