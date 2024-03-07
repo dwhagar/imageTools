@@ -1,7 +1,8 @@
 import os, hashlib, argparse, string, time, textwrap, shutil
-import nltk, pytesseract, Levenshtein
+import nltk, pytesseract
 from PIL import Image
 from spellchecker import SpellChecker
+from difflib import SequenceMatcher
 
 # Instantiate resources that we don't have to do more than once.
 corpus_words = nltk.corpus.words.words()
@@ -54,7 +55,7 @@ def correct_spelling(input_text, verbose=False, test=False):
     corrected_string = ' '.join(corrected_words)
     return corrected_string
 
-def filter_similar_words(words, similarity_threshold=0.95):
+def filter_similar_words(words, similarity_threshold=0.80):
     """
     Filters out words that are at least similarity_threshold similar to each other.
 
@@ -66,17 +67,23 @@ def filter_similar_words(words, similarity_threshold=0.95):
     list: A filtered list of words with highly similar words removed.
     """
     filtered_words = []
+
     for word in words:
         stem_word = stemmer.stem(word)
         too_similar = False
-        for other_word in filtered_words:
-            # Calculate Levenshtein ratio (similarity) between words
-            if stem_word in corpus_words:
+        if len(word) >= 10 or word in filtered_words:
+            too_similar = True
+        else:
+            for other_word in filtered_words:
                 other_stem_word = stemmer.stem(other_word)
-                similarity = Levenshtein.ratio(stem_word, other_stem_word)
-                if similarity >= similarity_threshold:
+
+                if stem_word == other_stem_word:
                     too_similar = True
-                    break
+                else:
+                    word_sim = SequenceMatcher(None, word, other_word).ratio()
+                    stem_sim = SequenceMatcher(None, stem_word, other_stem_word).ratio()
+                    if word_sim >= similarity_threshold or stem_sim >= similarity_threshold:
+                        too_similar = True
 
         if not too_similar:
             filtered_words.append(word)
@@ -159,7 +166,27 @@ def get_file_list(directory):
 
     return image_files, non_image_files
 
-def process_image(image_file, directory, verbose=False, test=False):
+def append_to_file(filename, text_to_append):
+    """
+    Appends a given text to the end of a specified file.
+
+    Parameters:
+    - filename (str): The name of the file to append the text to.
+    - text_to_append (str): The text to append to the file.
+
+    If the file cannot be opened for writing, the function will print an error message and return.
+    """
+    try:
+        # Attempt to open the file in append mode and write the text
+        with open(filename, 'a') as file:
+            file.write(text_to_append)
+            file.write('\n')  # Optionally add a newline after appending
+    except Exception as e:
+        # Print an error message if there's an issue opening the file
+        print(f"An error occurred while trying to open or write to the file '{filename}': {e}")
+        return
+
+def process_image(image_file, directory, verbose=False, test=False, outfile=None):
     """
     Processes an image, extracts text using OCR, corrects spelling, and prioritizes proper nouns.
 
@@ -189,6 +216,9 @@ def process_image(image_file, directory, verbose=False, test=False):
     if not text.strip():
         print(f"No text found in image: {image_file}")
         return ""
+
+    if not test:
+        append_to_file(outfile, text.strip())
 
     # Correct spelling and reorder text to prioritize proper nouns
     corrected_text = correct_spelling(text)
@@ -263,12 +293,25 @@ def main():
     parser.add_argument("-d", "--directory", required=True, help="Directory containing files to process")
     parser.add_argument("-t", "--test", action="store_true", help="Test mode: show intended actions without renaming")
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose mode: print actions during renaming")
+    parser.add_argument("-o", "--output_text", type=str, help="Output raw text from all scanned images to this file. The -t argument will override.")
 
     args = parser.parse_args()
 
     if not os.path.isdir(args.directory) or not os.access(args.directory, os.R_OK | os.W_OK):
         print("Directory does not exist or cannot be accessed.")
         return
+
+    if args.output_text:
+        # Check if the file does not exist or is not writable
+        if not os.access(args.output_text, os.W_OK):
+            print(f"Warning: The file '{args.output_text}' does not exist or is not writable.")
+        else:
+            if args.verbose or args.test:
+                print(f"The file '{args.output_text}' is writable.")
+
+        print(f"Initializing the file '{args.output_text}'.")
+        with open(args.output_text, 'w') as file:
+            pass
 
     # Get lists of image and non-image files
     image_list, not_image_list = get_file_list(args.directory)
@@ -281,6 +324,9 @@ def main():
     # Process non-image files
     print("Planning rename of non-image files to MD5 hashes...")
     for filename in not_image_list:
+        if filename[0] == '.':
+            continue
+
         _, extension = os.path.splitext(filename)
         file_info = {
             'filename': filename,
@@ -295,7 +341,10 @@ def main():
     # Process image files for text, renaming those without sufficient text to MD5 hash
     print("Planning rename of image files, if no image text can be found images will be renamed to MD5 hash...")
     for filename in image_list:
-        words = process_image(filename, args.directory, verbose=args.verbose, test=args.test)
+        if filename[0] == '.':
+            continue
+
+        words = process_image(filename, args.directory, verbose=args.verbose, test=args.test, outfile=args.output_text)
         _, extension = os.path.splitext(filename)
 
         # Determine the rename value, ensuring to keep the original extension
